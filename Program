@@ -1,0 +1,96 @@
+#include <ESP8266WiFi.h> 
+#include <ThingSpeak.h> 
+ 
+WiFiClient client; 
+ 
+long myChannelNumber = 2493015; 
+const char myWriteAPIKey[] = "B7O0C45TY5HJPS4J"; 
+ 
+ 
+// Define pins 
+const int measurePin = A0;  // Analog pin for dust sensor measurement 
+const int ledPower = 13;     // Digital pin for LED power control 
+const int ExhaustFan = 16; 
+const int AirFilter = 5; 
+ 
+ 
+// Variables to store measured values 
+float voMeasured = 0; 
+float dustVoltage = 0; 
+float dustDensity = 0; 
+ 
+//variables to update and send on thingspeak for exhaust fan and air filter condition 
+int a,b; 
+ 
+void setup() { 
+  Serial.begin(115200);   // Initialize serial communication 
+  WiFi.mode(WIFI_STA); 
+  WiFi.begin("vivo", "asdfghjkl"); 
+  while(WiFi.status() != WL_CONNECTED) 
+  { 
+    delay(200); 
+    Serial.print(".."); 
+  } 
+  Serial.println(); 
+  Serial.println("NodeMCU is connected!"); 
+  Serial.println(WiFi.localIP()); 
+ 
+  pinMode(ledPower, OUTPUT);  // Set LED power pin as output 
+  pinMode(ExhaustFan, OUTPUT); 
+  pinMode(AirFilter, OUTPUT); 
+ 
+ 
+  ThingSpeak.begin(client); 
+ 
+} 
+ 
+void loop() { 
+7 
+ 
+  // Turn on LED power 
+  digitalWrite(ledPower, LOW); 
+  delayMicroseconds(280); 
+ 
+  // Read analog value from dust sensor 
+  voMeasured = analogRead(measurePin); 
+ 
+  // Wait before turning off LED 
+  delayMicroseconds(40); 
+  digitalWrite(ledPower, HIGH); 
+  delayMicroseconds(9680); 
+ 
+  // Calculate dust voltage based on measured analog value 
+  dustVoltage = voMeasured * (3.0 / 1024); 
+ 
+  // Convert dust voltage to dust density 
+  // Use calibration values obtained from sensor datasheet or experimentation 
+   dustDensity = 170 * dustVoltage - 0.1;  // Example calibration (adjust as needed) 
+ 
+   if(dustDensity > 200) 
+   { 
+    digitalWrite(ExhaustFan,HIGH); 
+    digitalWrite(AirFilter,HIGH); 
+    a = 5; 
+    b = 5; 
+    Serial.println("Exhaust Fan And Air Filter is ON."); 
+   } 
+   else{ 
+    digitalWrite(ExhaustFan,LOW); 
+    digitalWrite(AirFilter,LOW); 
+    a = 0; 
+    b = 0; 
+   } 
+ 
+  // Display the result 
+  Serial.print("The current dust concentration is: "); 
+  Serial.print(dustDensity); 
+  Serial.println(" ug/m3"); 
+  Serial.println(a); 
+  Serial.println(b); 
+  ThingSpeak.writeField(myChannelNumber, 1, dustDensity, myWriteAPIKey); 
+  ThingSpeak.writeField(myChannelNumber, 2, a, myWriteAPIKey); 
+  ThingSpeak.writeField(myChannelNumber, 3, b, myWriteAPIKey); 
+ 
+  delay(500);  // Delay before next measurement and sending 
+} 
+ 
